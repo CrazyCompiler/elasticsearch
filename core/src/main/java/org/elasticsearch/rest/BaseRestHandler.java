@@ -126,7 +126,7 @@ public abstract class BaseRestHandler extends AbstractComponent implements RestH
      * the request against a channel.
      */
     @FunctionalInterface
-    protected interface RestChannelConsumer extends CheckedConsumer<RestChannel, Exception> {
+    public interface RestChannelConsumer extends CheckedConsumer<RestChannel, Exception> {
     }
 
     /**
