@@ -160,6 +160,7 @@ public class UpdateHelper extends AbstractComponent {
         String timestamp = null;
         TimeValue ttl = null;
         final Map<String, Object> updatedSourceAsMap;
+        final Map<String, Object> updatedSourceMap;
         final XContentType updateSourceContentType = sourceAndContent.v1();
         String routing = getResult.getFields().containsKey(RoutingFieldMapper.NAME) ? getResult.field(RoutingFieldMapper.NAME).getValue().toString() : null;
         String parent = getResult.getFields().containsKey(ParentFieldMapper.NAME) ? getResult.field(ParentFieldMapper.NAME).getValue().toString() : null;
@@ -177,7 +178,8 @@ public class UpdateHelper extends AbstractComponent {
             if (indexRequest.parent() != null) {
                 parent = indexRequest.parent();
             }
-            boolean noop = !XContentHelper.update(updatedSourceAsMap, indexRequest.sourceAsMap(), request.detectNoop());
+            updatedSourceMap = XContentHelper.update(updatedSourceAsMap, indexRequest.sourceAsMap(), request.detectNoop());
+            boolean noop = false;
             // noop could still be true even if detectNoop isn't because update detects empty maps as noops.  BUT we can only
             // actually turn the update into a noop if detectNoop is true to preserve backwards compatibility and to handle
             // cases where users repopulating multi-fields or adding synonyms, etc.
@@ -213,7 +215,7 @@ public class UpdateHelper extends AbstractComponent {
 
             ttl = getTTLFromScriptContext(ctx);
 
-            updatedSourceAsMap = (Map<String, Object>) ctx.get("_source");
+            updatedSourceMap = (Map<String, Object>) ctx.get("_source");
         }
 
         // apply script to update the source
@@ -227,28 +229,28 @@ public class UpdateHelper extends AbstractComponent {
 
         if (operation == null || "index".equals(operation)) {
             final IndexRequest indexRequest = Requests.indexRequest(request.index()).type(request.type()).id(request.id()).routing(routing).parent(parent)
-                    .source(updatedSourceAsMap, updateSourceContentType)
+                    .source(updatedSourceMap, updateSourceContentType)
                     .version(updateVersion).versionType(request.versionType())
                     .waitForActiveShards(request.waitForActiveShards())
                     .timestamp(timestamp).ttl(ttl)
                     .timeout(request.timeout())
                     .setRefreshPolicy(request.getRefreshPolicy());
-            return new Result(indexRequest, DocWriteResponse.Result.UPDATED, updatedSourceAsMap, updateSourceContentType);
+            return new Result(indexRequest, DocWriteResponse.Result.UPDATED, updatedSourceMap, updateSourceContentType);
         } else if ("delete".equals(operation)) {
             DeleteRequest deleteRequest = Requests.deleteRequest(request.index()).type(request.type()).id(request.id()).routing(routing).parent(parent)
                     .version(updateVersion).versionType(request.versionType())
                     .waitForActiveShards(request.waitForActiveShards())
                     .timeout(request.timeout())
                     .setRefreshPolicy(request.getRefreshPolicy());
-            return new Result(deleteRequest, DocWriteResponse.Result.DELETED, updatedSourceAsMap, updateSourceContentType);
+            return new Result(deleteRequest, DocWriteResponse.Result.DELETED, updatedSourceMap, updateSourceContentType);
         } else if ("none".equals(operation)) {
             UpdateResponse update = new UpdateResponse(shardId, getResult.getType(), getResult.getId(), getResult.getVersion(), DocWriteResponse.Result.NOOP);
-            update.setGetResult(extractGetResult(request, request.index(), getResult.getVersion(), updatedSourceAsMap, updateSourceContentType, getResult.internalSourceRef()));
-            return new Result(update, DocWriteResponse.Result.NOOP, updatedSourceAsMap, updateSourceContentType);
+            update.setGetResult(extractGetResult(request, request.index(), getResult.getVersion(), updatedSourceMap, updateSourceContentType, getResult.internalSourceRef()));
+            return new Result(update, DocWriteResponse.Result.NOOP, updatedSourceMap, updateSourceContentType);
         } else {
             logger.warn("Used update operation [{}] for script [{}], doing nothing...", operation, request.script.getIdOrCode());
             UpdateResponse update = new UpdateResponse(shardId, getResult.getType(), getResult.getId(), getResult.getVersion(), DocWriteResponse.Result.NOOP);
-            return new Result(update, DocWriteResponse.Result.NOOP, updatedSourceAsMap, updateSourceContentType);
+            return new Result(update, DocWriteResponse.Result.NOOP, updatedSourceMap, updateSourceContentType);
         }
     }
 

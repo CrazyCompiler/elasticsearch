@@ -30,11 +30,7 @@ import org.elasticsearch.common.xcontent.ToXContent.Params;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 import static org.elasticsearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 
@@ -232,24 +228,26 @@ public class XContentHelper {
      *                               unequal?  This is just a .equals check on the objects, but that can take some time on long strings.
      * @return true if the source map was modified
      */
-    public static boolean update(Map<String, Object> source, Map<String, Object> changes, boolean checkUpdatesAreUnequal) {
+    public static Map<String, Object> update(Map<String, Object> source, Map<String, Object> changes, boolean checkUpdatesAreUnequal) {
         boolean modified = false;
+        final Map<String, Object> updatedMap = new HashMap<>();
         for (Map.Entry<String, Object> changesEntry : changes.entrySet()) {
             if (!source.containsKey(changesEntry.getKey())) {
                 // safe to copy, change does not exist in source
-                source.put(changesEntry.getKey(), changesEntry.getValue());
+                updatedMap.put(changesEntry.getKey(), changesEntry.getValue());
                 modified = true;
                 continue;
             }
             Object old = source.get(changesEntry.getKey());
             if (old instanceof Map && changesEntry.getValue() instanceof Map) {
                 // recursive merge maps
-                modified |= update((Map<String, Object>) source.get(changesEntry.getKey()),
+                Map<String, Object> internalUpdatedMap = update((Map<String, Object>) source.get(changesEntry.getKey()),
                         (Map<String, Object>) changesEntry.getValue(), checkUpdatesAreUnequal && !modified);
+                updatedMap.put(changesEntry.getKey(),internalUpdatedMap);
                 continue;
             }
             // update the field
-            source.put(changesEntry.getKey(), changesEntry.getValue());
+            updatedMap.put(changesEntry.getKey(), changesEntry.getValue());
             if (modified) {
                 continue;
             }
@@ -259,7 +257,7 @@ public class XContentHelper {
             }
             modified = !Objects.equals(old, changesEntry.getValue());
         }
-        return modified;
+        return updatedMap;
     }
 
     /**

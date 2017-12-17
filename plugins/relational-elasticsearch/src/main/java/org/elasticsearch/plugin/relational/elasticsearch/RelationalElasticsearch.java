@@ -18,18 +18,15 @@ import java.util.function.Supplier;
 
 public class RelationalElasticsearch extends Plugin implements ActionPlugin {
 
-    private final RelationalElasticsearchConfig config;
-
     public RelationalElasticsearch(Settings settings) {
         Environment environment = new Environment(settings);
-        this.config = null;
     }
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
                                              IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver,
                                              Supplier<DiscoveryNodes> nodesInCluster) {
-        Handler handler = new Handler(settings, restController, config);
+        Handler handler = new Handler(settings, restController);
         List<RestHandler> listHandlers = new ArrayList<>();
         listHandlers.add(handler);
         return listHandlers;
