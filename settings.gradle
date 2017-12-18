@@ -62,6 +62,7 @@ List projects = [
   'plugins:repository-hdfs',
   'plugins:repository-s3',
   'plugins:relational-elasticsearch',
+  'plugins:advance-update',
   'plugins:jvm-example',
   'plugins:store-smb',
   'plugins:periscope-repository-s3',
