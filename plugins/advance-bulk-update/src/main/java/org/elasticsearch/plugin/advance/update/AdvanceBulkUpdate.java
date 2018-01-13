@@ -9,9 +9,10 @@ import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
-import org.elasticsearch.plugin.advance.update.action.TransportUpdateAction;
-import org.elasticsearch.plugin.advance.update.action.UpdateAction;
-import org.elasticsearch.plugin.advance.update.rest.AdvanceUpdateAction;
+import org.elasticsearch.plugin.advance.update.bulk.AdvanceBulkAction;
+import org.elasticsearch.plugin.advance.update.rest.AdvanceBulkUpdateAction;
+import org.elasticsearch.plugin.advance.update.bulk.AdvanceTransportBulkAction;
+import org.elasticsearch.plugin.advance.update.bulk.TransportShardAdvanceBulkAction;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestController;
@@ -22,13 +23,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AdvanceUpdate extends Plugin implements ActionPlugin {
+public class AdvanceBulkUpdate extends Plugin implements ActionPlugin {
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
-        GenericAction instance = UpdateAction.INSTANCE;
-        Class<TransportUpdateAction> transportUpdateActionClass = TransportUpdateAction.class;
-        return Collections.singletonList(new ActionHandler<>(instance, transportUpdateActionClass));
+        GenericAction instance = AdvanceBulkAction.INSTANCE;
+        return Collections.singletonList(new ActionHandler<>(instance, AdvanceTransportBulkAction.class, TransportShardAdvanceBulkAction.class));
     }
 
     @Override
@@ -39,7 +39,7 @@ public class AdvanceUpdate extends Plugin implements ActionPlugin {
                                              SettingsFilter settingsFilter,
                                              IndexNameExpressionResolver indexNameExpressionResolver,
                                              Supplier<DiscoveryNodes> nodesInCluster) {
-        AdvanceUpdateAction handler = new AdvanceUpdateAction(settings, restController);
+        AdvanceBulkUpdateAction handler = new AdvanceBulkUpdateAction(settings, restController);
         List<RestHandler> listHandlers = new ArrayList<>();
         listHandlers.add(handler);
         return listHandlers;

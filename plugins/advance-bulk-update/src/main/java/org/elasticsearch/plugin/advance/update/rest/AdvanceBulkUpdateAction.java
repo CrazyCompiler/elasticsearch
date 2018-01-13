@@ -1,4 +1,4 @@
-package org.elasticsearch.plugin.advance.update.bulk;
+package org.elasticsearch.plugin.advance.update.rest;
 
 import org.elasticsearch.action.Action;
 import org.elasticsearch.action.ActionListener;
@@ -10,6 +10,9 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.DeprecationLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.plugin.advance.update.bulk.AdvanceBulkAction;
+import org.elasticsearch.plugin.advance.update.bulk.AdvanceBulkRequest;
+import org.elasticsearch.plugin.advance.update.bulk.AdvanceBulkShardRequest;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
@@ -33,13 +36,15 @@ public class AdvanceBulkUpdateAction extends BaseRestHandler {
     public AdvanceBulkUpdateAction(final Settings settings, final RestController controller) {
         super(settings);
 
-        controller.registerHandler(POST, "/_advancebulk", this);
-        controller.registerHandler(POST, "/{index}/__advancebulk", this);
-        controller.registerHandler(POST, "/{index}/{type}/__advancebulk", this);
+        String advanceBulkPath = "/_advancebulk";
 
-        controller.registerHandler(PUT, "/__advancebulk", this);
-        controller.registerHandler(PUT, "/{index}/__advancebulk", this);
-        controller.registerHandler(PUT, "/{index}/{type}/__advancebulk", this);
+        controller.registerHandler(POST, advanceBulkPath, this);
+        controller.registerHandler(POST, "/{index}"+advanceBulkPath, this);
+        controller.registerHandler(POST, "/{index}/{type}"+advanceBulkPath, this);
+
+        controller.registerHandler(PUT, advanceBulkPath, this);
+        controller.registerHandler(PUT, "/{index}"+advanceBulkPath, this);
+        controller.registerHandler(PUT, "/{index}/{type}"+advanceBulkPath, this);
 
         this.allowExplicitIndex = MULTI_ALLOW_EXPLICIT_INDEX.get(settings);
         System.out.println("The request is : ");
