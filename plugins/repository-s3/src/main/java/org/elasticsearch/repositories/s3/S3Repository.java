@@ -27,12 +27,15 @@ import org.elasticsearch.cluster.metadata.RepositoryMetaData;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.blobstore.BlobPath;
 import org.elasticsearch.common.blobstore.BlobStore;
+import org.elasticsearch.common.settings.SecureSetting;
 import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Setting.AffixSetting;
 import org.elasticsearch.common.settings.Setting.Property;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.monitor.jvm.JvmInfo;
 import org.elasticsearch.repositories.RepositoryException;
@@ -66,7 +69,6 @@ class S3Repository extends BlobStoreRepository {
     public interface Repositories {
         /**
          * repositories.s3.access_key: AWS Access key specific for all S3 Repositories API calls. Defaults to cloud.aws.s3.access_key.
-         *
          * @see CLOUD_S3#KEY_SETTING
          */
         Setting<SecureString> KEY_SETTING = new Setting<>("repositories.s3.access_key", CLOUD_S3.KEY_SETTING, SecureString::new,
@@ -74,7 +76,6 @@ class S3Repository extends BlobStoreRepository {
 
         /**
          * repositories.s3.secret_key: AWS Secret key specific for all S3 Repositories API calls. Defaults to cloud.aws.s3.secret_key.
-         *
          * @see CLOUD_S3#SECRET_SETTING
          */
         Setting<SecureString> SECRET_SETTING = new Setting<>("repositories.s3.secret_key", CLOUD_S3.SECRET_SETTING, SecureString::new,
@@ -82,21 +83,18 @@ class S3Repository extends BlobStoreRepository {
 
         /**
          * repositories.s3.region: Region specific for all S3 Repositories API calls. Defaults to cloud.aws.s3.region.
-         *
          * @see CLOUD_S3#REGION_SETTING
          */
         Setting<String> REGION_SETTING = new Setting<>("repositories.s3.region", CLOUD_S3.REGION_SETTING,
             s -> s.toLowerCase(Locale.ROOT), Property.NodeScope, Property.Deprecated);
         /**
          * repositories.s3.endpoint: Endpoint specific for all S3 Repositories API calls. Defaults to cloud.aws.s3.endpoint.
-         *
          * @see CLOUD_S3#ENDPOINT_SETTING
          */
         Setting<String> ENDPOINT_SETTING = new Setting<>("repositories.s3.endpoint", CLOUD_S3.ENDPOINT_SETTING,
             s -> s.toLowerCase(Locale.ROOT), Property.NodeScope, Property.Deprecated);
         /**
          * repositories.s3.protocol: Protocol specific for all S3 Repositories API calls. Defaults to cloud.aws.s3.protocol.
-         *
          * @see CLOUD_S3#PROTOCOL_SETTING
          */
         Setting<Protocol> PROTOCOL_SETTING = new Setting<>("repositories.s3.protocol", CLOUD_S3.PROTOCOL_SETTING,
@@ -109,26 +107,20 @@ class S3Repository extends BlobStoreRepository {
          * repositories.s3.server_side_encryption: When set to true files are encrypted on server side using AES256 algorithm.
          * Defaults to false.
          */
-        static final Setting<Boolean> SERVER_SIDE_ENCRYPTION_SETTING =
-            Setting.boolSetting("server_side_encryption", false, Property.NodeScope, Property.Deprecated);
-
-        /**
-         * When aws_kms_key is set, files are encrypted on server side using kms key provided or AE256 algorithm is used.
-         * Defaults to AES256 algorithm.
-         */
-        static final Setting<String> AWS_KMS_KEY = Setting.simpleString("aws_kms_key", Property.NodeScope);
+        Setting<Boolean> SERVER_SIDE_ENCRYPTION_SETTING =
+            Setting.boolSetting("repositories.s3.server_side_encryption", false, Property.NodeScope, Property.Deprecated);
 
         /**
          * Default is to use 100MB (S3 defaults) for heaps above 2GB and 5% of
          * the available memory for smaller heaps.
          */
         ByteSizeValue DEFAULT_BUFFER_SIZE = new ByteSizeValue(
-            Math.max(
-                ByteSizeUnit.MB.toBytes(5), // minimum value
-                Math.min(
-                    ByteSizeUnit.MB.toBytes(100),
-                    JvmInfo.jvmInfo().getMem().getHeapMax().getBytes() / 20)),
-            ByteSizeUnit.BYTES);
+                Math.max(
+                        ByteSizeUnit.MB.toBytes(5), // minimum value
+                        Math.min(
+                                ByteSizeUnit.MB.toBytes(100),
+                                JvmInfo.jvmInfo().getMem().getHeapMax().getBytes() / 20)),
+                ByteSizeUnit.BYTES);
 
         /**
          * repositories.s3.buffer_size: Minimum threshold below which the chunk is uploaded using a single request. Beyond this threshold,
@@ -175,11 +167,11 @@ class S3Repository extends BlobStoreRepository {
         Setting<String> BASE_PATH_SETTING = Setting.simpleString("repositories.s3.base_path", Property.NodeScope, Property.Deprecated);
         /**
          * repositories.s3.path_style_access: When set to true configures the client to use path-style access for all requests.
-         * Amazon S3 supports virtual-hosted-style and path-style access in all Regions. The path-style syntax, however,
-         * requires that you use the region-specific endpoint when attempting to access a bucket.
-         * The default behaviour is to detect which access style to use based on the configured endpoint (an IP will result
-         * in path-style access) and the bucket being accessed (some buckets are not valid DNS names). Setting this flag
-         * will result in path-style access being used for all requests.
+         Amazon S3 supports virtual-hosted-style and path-style access in all Regions. The path-style syntax, however,
+         requires that you use the region-specific endpoint when attempting to access a bucket.
+         The default behaviour is to detect which access style to use based on the configured endpoint (an IP will result
+         in path-style access) and the bucket being accessed (some buckets are not valid DNS names). Setting this flag
+         will result in path-style access being used for all requests.
          */
         Setting<Boolean> PATH_STYLE_ACCESS_SETTING = Setting.boolSetting("repositories.s3.path_style_access", false,
             Property.NodeScope, Property.Deprecated);
@@ -200,89 +192,74 @@ class S3Repository extends BlobStoreRepository {
         Setting<String> BUCKET_SETTING = Setting.simpleString("bucket");
         /**
          * endpoint
-         *
-         * @see Repositories#ENDPOINT_SETTING
+         * @see  Repositories#ENDPOINT_SETTING
          */
         Setting<String> ENDPOINT_SETTING = Setting.simpleString("endpoint", Property.Deprecated);
         /**
          * protocol
-         *
-         * @see Repositories#PROTOCOL_SETTING
+         * @see  Repositories#PROTOCOL_SETTING
          */
         Setting<Protocol> PROTOCOL_SETTING = new Setting<>("protocol", "https", s -> Protocol.valueOf(s.toUpperCase(Locale.ROOT)),
             Property.Deprecated);
         /**
          * region
-         *
-         * @see Repositories#REGION_SETTING
+         * @see  Repositories#REGION_SETTING
          */
         Setting<String> REGION_SETTING = new Setting<>("region", "", s -> s.toLowerCase(Locale.ROOT), Property.Deprecated);
         /**
          * server_side_encryption
-         *
-         * @see Repositories#SERVER_SIDE_ENCRYPTION_SETTING
+         * @see  Repositories#SERVER_SIDE_ENCRYPTION_SETTING
          */
         Setting<Boolean> SERVER_SIDE_ENCRYPTION_SETTING = Setting.boolSetting("server_side_encryption", false);
 
-        Setting<String> AWS_KMS_KEY = Setting.simpleString("aws_kms_key");
-
         /**
          * buffer_size
-         *
-         * @see Repositories#BUFFER_SIZE_SETTING
+         * @see  Repositories#BUFFER_SIZE_SETTING
          */
         Setting<ByteSizeValue> BUFFER_SIZE_SETTING =
             Setting.byteSizeSetting("buffer_size", Repositories.DEFAULT_BUFFER_SIZE,
                 new ByteSizeValue(5, ByteSizeUnit.MB), new ByteSizeValue(5, ByteSizeUnit.TB));
         /**
          * max_retries
-         *
-         * @see Repositories#MAX_RETRIES_SETTING
+         * @see  Repositories#MAX_RETRIES_SETTING
          */
         Setting<Integer> MAX_RETRIES_SETTING = Setting.intSetting("max_retries", 3, Property.Deprecated);
         /**
          * use_throttle_retries
-         *
-         * @see Repositories#USE_THROTTLE_RETRIES_SETTING
+         * @see  Repositories#USE_THROTTLE_RETRIES_SETTING
          */
         Setting<Boolean> USE_THROTTLE_RETRIES_SETTING = Setting.boolSetting("use_throttle_retries",
             ClientConfiguration.DEFAULT_THROTTLE_RETRIES, Property.Deprecated);
         /**
          * chunk_size
-         *
-         * @see Repositories#CHUNK_SIZE_SETTING
+         * @see  Repositories#CHUNK_SIZE_SETTING
          */
         Setting<ByteSizeValue> CHUNK_SIZE_SETTING =
             Setting.byteSizeSetting("chunk_size", new ByteSizeValue(1, ByteSizeUnit.GB),
                 new ByteSizeValue(5, ByteSizeUnit.MB), new ByteSizeValue(5, ByteSizeUnit.TB));
         /**
          * compress
-         *
-         * @see Repositories#COMPRESS_SETTING
+         * @see  Repositories#COMPRESS_SETTING
          */
         Setting<Boolean> COMPRESS_SETTING = Setting.boolSetting("compress", false);
         /**
          * storage_class
-         *
-         * @see Repositories#STORAGE_CLASS_SETTING
+         * @see  Repositories#STORAGE_CLASS_SETTING
          */
         Setting<String> STORAGE_CLASS_SETTING = Setting.simpleString("storage_class");
         /**
          * canned_acl
-         *
-         * @see Repositories#CANNED_ACL_SETTING
+         * @see  Repositories#CANNED_ACL_SETTING
          */
         Setting<String> CANNED_ACL_SETTING = Setting.simpleString("canned_acl");
         /**
          * base_path
-         *
-         * @see Repositories#BASE_PATH_SETTING
+         * @see  Repositories#BASE_PATH_SETTING
          */
         Setting<String> BASE_PATH_SETTING = Setting.simpleString("base_path");
         /**
          * path_style_access
-         *
-         * @see Repositories#PATH_STYLE_ACCESS_SETTING
+         * @see  Repositories#PATH_STYLE_ACCESS_SETTING
          */
         Setting<Boolean> PATH_STYLE_ACCESS_SETTING = Setting.boolSetting("path_style_access", false, Property.Deprecated);
     }
@@ -299,7 +276,7 @@ class S3Repository extends BlobStoreRepository {
      * Constructs an s3 backed repository
      */
     S3Repository(RepositoryMetaData metadata, Settings settings,
-                 NamedXContentRegistry namedXContentRegistry, AwsS3Service s3Service) throws IOException {
+                        NamedXContentRegistry namedXContentRegistry, AwsS3Service s3Service) throws IOException {
         super(metadata, settings, namedXContentRegistry);
 
         String bucket = getValue(metadata.settings(), settings, Repository.BUCKET_SETTING, Repositories.BUCKET_SETTING);
@@ -308,7 +285,6 @@ class S3Repository extends BlobStoreRepository {
         }
 
         boolean serverSideEncryption = getValue(metadata.settings(), settings, Repository.SERVER_SIDE_ENCRYPTION_SETTING, Repositories.SERVER_SIDE_ENCRYPTION_SETTING);
-        String sseAwsKeyId = getValue(metadata.settings(), settings, Repository.AWS_KMS_KEY, Repositories.AWS_KMS_KEY);
         ByteSizeValue bufferSize = getValue(metadata.settings(), settings, Repository.BUFFER_SIZE_SETTING, Repositories.BUFFER_SIZE_SETTING);
         this.chunkSize = getValue(metadata.settings(), settings, Repository.CHUNK_SIZE_SETTING, Repositories.CHUNK_SIZE_SETTING);
         this.compress = getValue(metadata.settings(), settings, Repository.COMPRESS_SETTING, Repositories.COMPRESS_SETTING);
@@ -324,22 +300,20 @@ class S3Repository extends BlobStoreRepository {
         String cannedACL = getValue(metadata.settings(), settings, Repository.CANNED_ACL_SETTING, Repositories.CANNED_ACL_SETTING);
 
         logger.debug("using bucket [{}], chunk_size [{}], server_side_encryption [{}], " +
-                "buffer_size [{}], cannedACL [{}], storageClass [{}]",
+            "buffer_size [{}], cannedACL [{}], storageClass [{}]",
             bucket, chunkSize, serverSideEncryption, bufferSize, cannedACL, storageClass);
 
         AmazonS3 client = s3Service.client(metadata.settings());
         String region = InternalAwsS3Service.getRegion(metadata.settings(), settings);
-
-        blobStore = new S3BlobStore(settings,
-            client,
-            bucket, region, serverSideEncryption, sseAwsKeyId, bufferSize, cannedACL, storageClass);
+        blobStore = new S3BlobStore(settings, client,
+                bucket, region, serverSideEncryption, bufferSize, cannedACL, storageClass);
 
         String basePath = getValue(metadata.settings(), settings, Repository.BASE_PATH_SETTING, Repositories.BASE_PATH_SETTING);
         if (Strings.hasLength(basePath)) {
             if (basePath.startsWith("/")) {
                 basePath = basePath.substring(1);
                 deprecationLogger.deprecated("S3 repository base_path trimming the leading `/`, and " +
-                    "leading `/` will not be supported for the S3 repository in future releases");
+                                                 "leading `/` will not be supported for the S3 repository in future releases");
             }
             this.basePath = new BlobPath().add(basePath);
         } else {

@@ -17,7 +17,6 @@
  * under the License.
  */
 
-package org.elasticsearch.cloud.aws.blobstore;
 package org.elasticsearch.repositories.s3;
 
 import org.elasticsearch.common.blobstore.BlobStore;
@@ -34,7 +33,7 @@ public class S3BlobStoreContainerTests extends ESBlobStoreContainerTestCase {
         MockAmazonS3 client = new MockAmazonS3();
         String bucket = randomAlphaOfLength(randomIntBetween(1, 10)).toLowerCase(Locale.ROOT);
 
-        return new S3BlobStore(Settings.EMPTY, client, bucket, null, false,null,
+        return new S3BlobStore(Settings.EMPTY, client, bucket, null, false,
             new ByteSizeValue(10, ByteSizeUnit.MB), "public-read-write", "standard");
     }
 }

@@ -65,7 +65,6 @@ List projects = [
   'plugins:advance-bulk-update',
   'plugins:jvm-example',
   'plugins:store-smb',
-  'plugins:periscope-repository-s3',
   'qa:auto-create-index',
   'qa:evil-tests',
   'qa:mixed-cluster',

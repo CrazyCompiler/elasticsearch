@@ -20,7 +20,16 @@
 package org.elasticsearch.repositories.s3;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.PutObjectResult;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import com.amazonaws.util.Base64;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.logging.Loggers;
@@ -30,6 +39,9 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -103,23 +115,18 @@ class DefaultS3OutputStream extends S3OutputStream {
     }
 
     protected void doUpload(S3BlobStore blobStore, String bucketName, String blobName, InputStream is, int length,
-                            boolean serverSideEncryption) throws AmazonS3Exception {
+            boolean serverSideEncryption) throws AmazonS3Exception {
         ObjectMetadata md = new ObjectMetadata();
+        if (serverSideEncryption) {
+            md.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+        }
         md.setContentLength(length);
+
         PutObjectRequest putRequest = new PutObjectRequest(bucketName, blobName, is, md)
                 .withStorageClass(blobStore.getStorageClass())
                 .withCannedAcl(blobStore.getCannedACL());
-
-        if (serverSideEncryption) {
-            if (blobStore.sseAwsKeyIsEmpty()) {
-                md.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-            } else {
-                putRequest.setSSEAwsKeyManagementParams(blobStore.getSSEAwsKey());
-            }
-        }
-
-
         blobStore.client().putObject(putRequest);
+
     }
 
     private void initializeMultipart() {
@@ -134,16 +141,12 @@ class DefaultS3OutputStream extends S3OutputStream {
 
     protected String doInitialize(S3BlobStore blobStore, String bucketName, String blobName, boolean serverSideEncryption) {
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucketName, blobName)
-            .withCannedACL(blobStore.getCannedACL())
-            .withStorageClass(blobStore.getStorageClass());
+                .withCannedACL(blobStore.getCannedACL())
+                .withStorageClass(blobStore.getStorageClass());
 
         if (serverSideEncryption) {
             ObjectMetadata md = new ObjectMetadata();
-            if (blobStore.sseAwsKeyIsEmpty()) {
-                md.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-            } else {
-                request.setSSEAwsKeyManagementParams(blobStore.getSSEAwsKey());
-            }
+            md.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
             request.setObjectMetadata(md);
         }
 
@@ -164,15 +167,15 @@ class DefaultS3OutputStream extends S3OutputStream {
     }
 
     protected PartETag doUploadMultipart(S3BlobStore blobStore, String bucketName, String blobName, String uploadId, InputStream is,
-                                         int length, boolean lastPart) throws AmazonS3Exception {
+            int length, boolean lastPart) throws AmazonS3Exception {
         UploadPartRequest request = new UploadPartRequest()
-            .withBucketName(bucketName)
-            .withKey(blobName)
-            .withUploadId(uploadId)
-            .withPartNumber(multipartChunks)
-            .withInputStream(is)
-            .withPartSize(length)
-            .withLastPart(lastPart);
+        .withBucketName(bucketName)
+        .withKey(blobName)
+        .withUploadId(uploadId)
+        .withPartNumber(multipartChunks)
+        .withInputStream(is)
+        .withPartSize(length)
+        .withLastPart(lastPart);
 
         UploadPartResult response = blobStore.client().uploadPart(request);
         return response.getPartETag();
@@ -191,7 +194,7 @@ class DefaultS3OutputStream extends S3OutputStream {
     }
 
     protected void doCompleteMultipart(S3BlobStore blobStore, String bucketName, String blobName, String uploadId, List<PartETag> parts)
-        throws AmazonS3Exception {
+            throws AmazonS3Exception {
         CompleteMultipartUploadRequest request = new CompleteMultipartUploadRequest(bucketName, blobName, uploadId, parts);
         blobStore.client().completeMultipartUpload(request);
     }
@@ -207,7 +210,7 @@ class DefaultS3OutputStream extends S3OutputStream {
     }
 
     protected void doAbortMultipart(S3BlobStore blobStore, String bucketName, String blobName, String uploadId)
-        throws AmazonS3Exception {
+            throws AmazonS3Exception {
         blobStore.client().abortMultipartUpload(new AbortMultipartUploadRequest(bucketName, blobName, uploadId));
     }
 }

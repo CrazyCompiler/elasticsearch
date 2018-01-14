@@ -20,7 +20,12 @@
 package org.elasticsearch.repositories.s3;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.blobstore.BlobMetaData;
@@ -151,17 +156,9 @@ class S3BlobContainer extends AbstractBlobContainer {
 
             if (blobStore.serverSideEncryption()) {
                 ObjectMetadata objectMetadata = new ObjectMetadata();
-                if (blobStore.sseAwsKeyIsEmpty()) {
-                    objectMetadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                }else {
-                    objectMetadata.setSSEAlgorithm(SSEAlgorithm.KMS.getAlgorithm());
-                    request.withSSEAwsKeyManagementParams(blobStore.getSSEAwsKey());
-                }
+                objectMetadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
                 request.setNewObjectMetadata(objectMetadata);
             }
-
-
-
             blobStore.client().copyObject(request);
             blobStore.client().deleteObject(blobStore.bucket(), buildKey(sourceBlobName));
         } catch (AmazonS3Exception e){

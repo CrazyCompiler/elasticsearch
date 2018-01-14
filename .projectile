@@ -27,6 +27,5 @@
 -/plugins/repository-s3/target
 -/plugins/site-example/target
 -/plugins/store-smb/target
--/plugins/periscope-repository-s3/target
 -/plugins/target
 -*.class

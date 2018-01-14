@@ -21,8 +21,14 @@ package org.elasticsearch.repositories.s3;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CreateBucketRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.StorageClass;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.blobstore.BlobContainer;
 import org.elasticsearch.common.blobstore.BlobPath;
@@ -47,20 +53,17 @@ class S3BlobStore extends AbstractComponent implements BlobStore {
 
     private final boolean serverSideEncryption;
 
-    private final String sseAwsKeyId;
-
     private final CannedAccessControlList cannedACL;
 
     private final StorageClass storageClass;
 
-    S3BlobStore(Settings settings, AmazonS3 client, String bucket, @Nullable String region, boolean serverSideEncryption,String sseAwsKeyId,
+    S3BlobStore(Settings settings, AmazonS3 client, String bucket, @Nullable String region, boolean serverSideEncryption,
                        ByteSizeValue bufferSize, String cannedACL, String storageClass) {
         super(settings);
         this.client = client;
         this.bucket = bucket;
         this.region = region;
         this.serverSideEncryption = serverSideEncryption;
-        this.sseAwsKeyId = sseAwsKeyId;
         this.bufferSize = bufferSize;
         this.cannedACL = initCannedACL(cannedACL);
         this.storageClass = initStorageClass(storageClass);
@@ -102,15 +105,6 @@ class S3BlobStore extends AbstractComponent implements BlobStore {
     public int bufferSizeInBytes() {
         return bufferSize.bytesAsInt();
     }
-
-    public boolean sseAwsKeyIsEmpty() {
-        if (sseAwsKeyId == null || sseAwsKeyId.trim().isEmpty()) {
-            return true;
-        }
-        return false;
-    }
-
-    public SSEAwsKeyManagementParams getSSEAwsKey() { return new SSEAwsKeyManagementParams(sseAwsKeyId); }
 
     @Override
     public BlobContainer blobContainer(BlobPath path) {
